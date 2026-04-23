@@ -24,6 +24,7 @@ app.get('/api/search', async (req, res) => {
             views: v.views, ago: v.ago
         })));
     } catch (err) {
+        console.error("Error en búsqueda:", err.message);
         res.status(500).json({ error: "Error en búsqueda" });
     }
 });
@@ -32,20 +33,30 @@ app.get('/api/search', async (req, res) => {
 app.get('/api/play', async (req, res) => {
     try {
         const videoID = req.query.id;
+        if (!videoID) return res.status(400).json({ error: "Falta ID" });
+        
         const url = await obtenerLinkYouTube(videoID);
         res.json({ url });
     } catch (err) {
         console.error("❌ Error en petición /api/play:", err.message);
-        res.status(500).json({ error: "YouTube bloqueó el link", detalle: err.message });
+        res.status(500).json({ 
+            error: "YouTube bloqueó el link", 
+            detalle: err.message,
+            ayuda: "Verifica la YT_COOKIE en las variables de entorno de Render"
+        });
     }
 });
 
-// --- FUNCIÓN MAESTRA DE EXTRACCIÓN ---
+// --- FUNCIÓN MAESTRA DE EXTRACCIÓN (CON BYPASS) ---
 async function obtenerLinkYouTube(id) {
+    // Obtenemos la cookie configurada en Render para evitar el Error 429
+    const myCookie = process.env.YT_COOKIE || '';
+
     const info = await ytdl.getInfo(id, {
         requestOptions: {
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+                'Cookie': myCookie,
                 'Accept': '*/*',
                 'Accept-Language': 'en-US,en;q=0.9',
                 'Referer': 'https://www.youtube.com/',
@@ -53,36 +64,40 @@ async function obtenerLinkYouTube(id) {
             }
         }
     });
-    // itag 18 es 360p MP4, ideal para el Galaxy S4
+
+    // itag 18 es el formato 360p MP4 perfecto para el procesador del S4
     const format = ytdl.chooseFormat(info.formats, { quality: '18' }) || 
                    ytdl.filterFormats(info.formats, 'audioandvideo').find(f => f.container === 'mp4');
+    
     return format ? format.url : null;
 }
 
-// --- 🕵️ MODO DETECTIVE: PRUEBA AL ARRANCAR ---
+// --- 🕵️ MODO DETECTIVE: DIAGNÓSTICO DE ARRANQUE ---
 async function realizarPruebaDeVuelo() {
-    const videoTest = 'jNQXAC9IVRw'; // Video clásico de "Me at the zoo"
+    const videoTest = 'jNQXAC9IVRw'; 
     console.log("🔍 INICIANDO AUTO-DIAGNÓSTICO...");
+    
+    if (!process.env.YT_COOKIE) {
+        console.log("⚠️ AVISO: No hay YT_COOKIE configurada. Es muy probable que falle con error 429.");
+    }
+
     try {
         const link = await obtenerLinkYouTube(videoTest);
         if (link) {
-            console.log("✅ ¡ÉXITO! El servidor puede obtener links de YouTube perfectamente.");
+            console.log("✅ ¡ÉXITO! El servidor está entregando links correctamente.");
         } else {
-            console.log("⚠️ ATENCIÓN: El link salió vacío. YouTube no devolvió un formato MP4 compatible.");
+            console.log("⚠️ ATENCIÓN: No se generó un link compatible (MP4/360p).");
         }
     } catch (err) {
         console.log("❌ ERROR CRÍTICO DETECTADO EN EL DEPLOY:");
         console.log("------------------------------------------------------------------");
         console.log("MENSAJE:", err.message);
         
-        // Guía rápida de solución según el error
-        if (err.message.includes('403')) {
-            console.log("CAUSA: YouTube bloqueó la IP de Render (Error 403 Forbidden).");
-            console.log("SOLUCIÓN: Intenta hacer un 'Clear Build Cache & Deploy' para cambiar de IP.");
-        } else if (err.message.includes('429')) {
-            console.log("CAUSA: Demasiadas peticiones (Rate Limit).");
-        } else if (err.message.includes('confirm your age')) {
-            console.log("CAUSA: El video de prueba tiene restricción de edad.");
+        if (err.message.includes('429')) {
+            console.log("CAUSA: YouTube detectó exceso de peticiones desde esta IP.");
+            console.log("SOLUCIÓN: Actualiza la variable YT_COOKIE en el panel de Render.");
+        } else if (err.message.includes('403')) {
+            console.log("CAUSA: Acceso prohibido (IP bloqueada por YouTube).");
         }
         console.log("------------------------------------------------------------------");
     }
@@ -97,6 +112,5 @@ app.listen(PORT, async () => {
     console.log(`    Modo: Compatibilidad S4    `);
     console.log("===============================");
     
-    // Ejecutamos la prueba de diagnóstico apenas sube el server
     await realizarPruebaDeVuelo();
 });
