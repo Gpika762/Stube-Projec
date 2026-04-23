@@ -1,6 +1,6 @@
 {
   "name": "stube-2016",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Servidor escudo para Galaxy S Collection",
   "main": "server.js",
   "scripts": {
