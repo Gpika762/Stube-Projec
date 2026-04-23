@@ -7,17 +7,27 @@ const app = express();
 
 app.use(cors());
 
-// ESTO ES LO QUE HACE QUE CARGUE TU DISEÑO AL ENTRAR
-app.use(express.static(path.join(__dirname, 'public')));
+// --- CONFIGURACIÓN DE RUTAS BLINDADA ---
+// Usamos path.resolve para que la ruta sea absoluta y Render no se pierda
+const publicFolder = path.resolve(__dirname, 'public');
 
+// Servir archivos estáticos (CSS, imágenes si tuvieras)
+app.use(express.static(publicFolder));
+
+// Ruta principal: Si entras a la URL, te entrega el index.html sin falta
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    res.sendFile(path.join(publicFolder, 'index.html'), (err) => {
+        if (err) {
+            console.error("Error enviando index.html:", err);
+            res.status(404).send("El servidor funciona, pero no encuentra index.html en la carpeta public.");
+        }
+    });
 });
 
-// Ruta para buscar videos (TU CODIGO ORIGINAL)
+// --- LÓGICA DE BÚSQUEDA (TU ORIGINAL MEJORADA) ---
 app.get('/api/search', async (req, res) => {
     try {
-        const query = req.query.q || 'Samsung Galaxy';
+        const query = req.query.q || 'Samsung Galaxy S4 official';
         const r = await yts(query);
         const videos = r.videos.slice(0, 15).map(v => ({
             id: v.videoId,
@@ -30,24 +40,49 @@ app.get('/api/search', async (req, res) => {
         }));
         res.json(videos);
     } catch (err) {
-        res.status(500).json({ error: "Error en la búsqueda" });
+        console.error("Error en búsqueda:", err);
+        res.status(500).json({ error: "Fallo en la conexión con YouTube" });
     }
 });
 
-// Ruta para sacar el link del video (TU CODIGO ORIGINAL)
+// --- LÓGICA DE REPRODUCCIÓN (TU ORIGINAL CON REFUERZO) ---
 app.get('/api/play', async (req, res) => {
     try {
         const videoID = req.query.id;
-        const info = await ytdl.getInfo(videoID);
-        // itag 18 = 360p MP4. El mejor para los Galaxy S.
+        if (!videoID) return res.status(400).send("Falta el ID del video");
+
+        // Agregamos un User-Agent básico para que YouTube no nos bloquee rápido
+        const info = await ytdl.getInfo(videoID, {
+            requestOptions: {
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36'
+                }
+            }
+        });
+
+        // itag 18 = 360p MP4. El que mejor corre en los Galaxy S2, S3 y S4.
         const format = ytdl.chooseFormat(info.formats, { quality: '18' });
-        res.json({ url: format.url });
+        
+        if (format && format.url) {
+            res.json({ url: format.url });
+        } else {
+            // Si no hay 360p, mandamos cualquier MP4 que funcione
+            const fallback = ytdl.filterFormats(info.formats, 'audioandvideo')
+                                 .find(f => f.container === 'mp4');
+            res.json({ url: fallback ? fallback.url : null });
+        }
     } catch (err) {
-        res.status(500).json({ error: "No se pudo obtener el video" });
+        console.error("Error en play:", err);
+        res.status(500).json({ error: "No se pudo obtener el link del video" });
     }
 });
 
+// Puerto dinámico para Render (8080 como reserva)
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
-    console.log("Servidor Stube Online");
+    console.log("===============================");
+    console.log("   STUBE SERVER 2016 ONLINE    ");
+    console.log(`   Puerto: ${PORT}             `);
+    console.log(`   Ruta: ${publicFolder}       `);
+    console.log("===============================");
 });
