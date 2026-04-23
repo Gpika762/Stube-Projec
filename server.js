@@ -7,19 +7,18 @@ const app = express();
 
 app.use(cors());
 
-// --- CONFIGURACIÓN DE RUTAS BLINDADA ---
-// Usamos path.resolve para que la ruta sea absoluta y Render no se pierda
-const publicFolder = path.resolve(__dirname, 'public');
+// --- CONFIGURACIÓN DE RUTAS (MODO RAÍZ) ---
+// Ya no necesitamos publicFolder porque el archivo está suelto en la raíz.
 
-// Servir archivos estáticos (CSS, imágenes si tuvieras)
-app.use(express.static(publicFolder));
+// Servir archivos estáticos directamente desde la raíz
+app.use(express.static(__dirname));
 
-// Ruta principal: Si entras a la URL, te entrega el index.html sin falta
+// Ruta principal: Entrega el index.html que está junto al server.js
 app.get('/', (req, res) => {
-    res.sendFile(path.join(publicFolder, 'index.html'), (err) => {
+    res.sendFile(path.join(__dirname, 'index.html'), (err) => {
         if (err) {
             console.error("Error enviando index.html:", err);
-            res.status(404).send("El servidor funciona, pero no encuentra index.html en la carpeta public.");
+            res.status(404).send("El servidor funciona, pero no encuentra index.html en la raíz. ¡Asegúrate de haberlo sacado de la carpeta public!");
         }
     });
 });
