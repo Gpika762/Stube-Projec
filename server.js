@@ -7,7 +7,7 @@ const app = express();
 app.use(cors());
 const API_KEY = process.env.YT_API_KEY;
 
-// --- BÚSQUEDA PROFESIONAL CON TU API KEY ---
+
 app.get('/api/search', async (req, res) => {
     try {
         const query = req.query.q || 'Samsung Galaxy';
