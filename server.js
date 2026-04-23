@@ -53,6 +53,7 @@ async function obtenerLinkYouTube(id) {
             }
         }
     });
+    // itag 18 es 360p MP4, ideal para el Galaxy S4
     const format = ytdl.chooseFormat(info.formats, { quality: '18' }) || 
                    ytdl.filterFormats(info.formats, 'audioandvideo').find(f => f.container === 'mp4');
     return format ? format.url : null;
@@ -65,17 +66,25 @@ async function realizarPruebaDeVuelo() {
     try {
         const link = await obtenerLinkYouTube(videoTest);
         if (link) {
-            console.log("✅ ¡ÉXITO! Link de prueba obtenido correctamente.");
+            console.log("✅ ¡ÉXITO! El servidor puede obtener links de YouTube perfectamente.");
         } else {
-            console.log("⚠️ ATENCIÓN: El link salió vacío pero no hubo error de código.");
+            console.log("⚠️ ATENCIÓN: El link salió vacío. YouTube no devolvió un formato MP4 compatible.");
         }
     } catch (err) {
-        console.log("❌ ERROR DETECTADO EN EL DEPLOY:");
-        console.log("---------------------------------------");
+        console.log("❌ ERROR CRÍTICO DETECTADO EN EL DEPLOY:");
+        console.log("------------------------------------------------------------------");
         console.log("MENSAJE:", err.message);
-        if (err.message.includes('403')) console.log("CAUSA: YouTube baneó la IP de este servidor de Render.");
-        if (err.message.includes('confirm your age')) console.log("CAUSA: El video tiene restricción de edad.");
-        console.log("---------------------------------------");
+        
+        // Guía rápida de solución según el error
+        if (err.message.includes('403')) {
+            console.log("CAUSA: YouTube bloqueó la IP de Render (Error 403 Forbidden).");
+            console.log("SOLUCIÓN: Intenta hacer un 'Clear Build Cache & Deploy' para cambiar de IP.");
+        } else if (err.message.includes('429')) {
+            console.log("CAUSA: Demasiadas peticiones (Rate Limit).");
+        } else if (err.message.includes('confirm your age')) {
+            console.log("CAUSA: El video de prueba tiene restricción de edad.");
+        }
+        console.log("------------------------------------------------------------------");
     }
 }
 
@@ -88,6 +97,6 @@ app.listen(PORT, async () => {
     console.log(`    Modo: Compatibilidad S4    `);
     console.log("===============================");
     
-    // Ejecutamos la prueba apenas sube el server
+    // Ejecutamos la prueba de diagnóstico apenas sube el server
     await realizarPruebaDeVuelo();
 });
