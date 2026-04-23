@@ -1,0 +1,15 @@
+{
+  "name": "stube-2016",
+  "version": "1.0.0",
+  "description": "Servidor escudo para Galaxy S Collection",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "yt-search": "^2.10.4",
+    "ytdl-core": "^4.11.5",
+    "cors": "^2.8.5"
+  }
+}
