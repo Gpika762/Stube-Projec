@@ -2,18 +2,17 @@ const express = require('express');
 const axios = require('axios'); 
 const ytdl = require('@distube/ytdl-core');
 const cors = require('cors');
-const path = require('path'); // <-- IMPORTANTE: Necesario para cargar el index.html
+const path = require('path'); 
 const app = express();
 
 // --- CONFIGURACIÓN DE ARCHIVOS ---
 app.use(cors());
-app.use(express.static(__dirname)); // Sirve archivos estáticos (CSS, JS del cliente)
+app.use(express.static(__dirname)); 
 
 const API_KEY = process.env.YT_API_KEY;
 
 // --- RUTA PARA CARGAR LA INTERFAZ PRINCIPAL ---
 app.get('/', (req, res) => {
-    // Esto soluciona el error "Cannot GET /"
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
@@ -33,12 +32,12 @@ app.get('/api/search', async (req, res) => {
         
         res.json(videos);
     } catch (err) {
-        console.error("Error API Google:", err.message);
+        console.error("❌ Error API Google:", err.message);
         res.status(500).json({ error: "La API de Google falló" });
     }
 });
 
-// --- API DE REPRODUCCIÓN (EXTRACCIÓN CON COOKIE) ---
+// --- API DE REPRODUCCIÓN (CON BYPASS DE IP Y COOKIE) ---
 app.get('/api/play', async (req, res) => {
     try {
         const videoID = req.query.id;
@@ -47,18 +46,30 @@ app.get('/api/play', async (req, res) => {
         const info = await ytdl.getInfo(videoID, {
             requestOptions: {
                 headers: {
-                    // User-Agent de Android para mejorar compatibilidad con el S4
-                    'User-Agent': 'Mozilla/5.0 (Linux; Android 4.4.2; GT-I9505) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/48.0.2564.95 Mobile Safari/537.36',
-                    'Cookie': rawCookie
+                    // Engañamos a YouTube simulando un navegador moderno pero con identidad de Android
+                    'User-Agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36',
+                    'Cookie': rawCookie,
+                    'Accept': '*/*',
+                    'Accept-Language': 'es-419,es;q=0.9',
+                    'Origin': 'https://www.youtube.com',
+                    'Referer': 'https://www.youtube.com/',
+                    'x-youtube-client-name': '1',
+                    'x-youtube-client-version': '2.20240522.00.00'
                 }
             }
         });
 
-        // itag 18 es 360p MP4, el estándar de oro para el Galaxy S4
+        // itag 18: 360p MP4 (Ideal para el hardware del S4)
         const format = ytdl.chooseFormat(info.formats, { quality: '18' }); 
-        res.json({ url: format ? format.url : null });
+        
+        if (format && format.url) {
+            res.json({ url: format.url });
+        } else {
+            res.status(404).json({ error: "No se encontró un formato compatible" });
+        }
+
     } catch (err) {
-        console.error("Error Play:", err.message);
+        console.error("❌ Error Play:", err.message);
         res.status(500).json({ 
             error: "YouTube bloqueó el enlace", 
             detalle: err.message 
@@ -70,7 +81,7 @@ app.get('/api/play', async (req, res) => {
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
     console.log(`=================================`);
-    console.log(`✅ STUBE ONLINE - MODO API KEY`);
+    console.log(`✅ STUBE ONLINE - BYPASS MODE`);
     console.log(`Puerto: ${PORT}`);
     console.log(`=================================`);
 });
