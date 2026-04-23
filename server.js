@@ -47,48 +47,38 @@ app.get('/api/play', async (req, res) => {
     }
 });
 
-// --- FUNCIÓN MAESTRA DE EXTRACCIÓN (CON BYPASS) ---
-// --- FUNCIÓN MAESTRA DE EXTRACCIÓN ACTUALIZADA ---
+// --- FUNCIÓN MAESTRA DE EXTRACCIÓN (BYPASS DIRECTO) ---
 async function obtenerLinkYouTube(id) {
     const rawCookie = process.env.YT_COOKIE || '';
     
-    // Convertimos el texto de la cookie al formato que pide la librería nueva
-    const cookieJSON = rawCookie.split(';').map(v => {
-        const parts = v.split('=');
-        return {
-            name: parts[0] ? parts[0].trim() : '',
-            value: parts[1] ? parts[1].trim() : '',
-            domain: '.youtube.com',
-            path: '/'
-        };
-    }).filter(cookie => cookie.name && cookie.value);
-
+    // Usamos la cookie directamente en los headers para evitar errores de funciones inexistentes
     const info = await ytdl.getInfo(id, {
         requestOptions: {
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+                'Cookie': rawCookie,
                 'Accept': '*/*',
                 'Accept-Language': 'en-US,en;q=0.9',
                 'Referer': 'https://www.youtube.com/',
                 'Origin': 'https://www.youtube.com'
-            },
-            // Pasamos las cookies de forma estructurada
-            jar: ytdl.createCookieAgent(cookieJSON)
+            }
         }
     });
 
+    // itag 18: 360p MP4, ideal para el hardware del Galaxy S4
     const format = ytdl.chooseFormat(info.formats, { quality: '18' }) || 
                    ytdl.filterFormats(info.formats, 'audioandvideo').find(f => f.container === 'mp4');
     
     return format ? format.url : null;
 }
+
 // --- 🕵️ MODO DETECTIVE: DIAGNÓSTICO DE ARRANQUE ---
 async function realizarPruebaDeVuelo() {
     const videoTest = 'jNQXAC9IVRw'; 
     console.log("🔍 INICIANDO AUTO-DIAGNÓSTICO...");
     
     if (!process.env.YT_COOKIE) {
-        console.log("⚠️ AVISO: No hay YT_COOKIE configurada. Es muy probable que falle con error 429.");
+        console.log("⚠️ AVISO: No hay YT_COOKIE configurada en Render.");
     }
 
     try {
@@ -104,10 +94,10 @@ async function realizarPruebaDeVuelo() {
         console.log("MENSAJE:", err.message);
         
         if (err.message.includes('429')) {
-            console.log("CAUSA: YouTube detectó exceso de peticiones desde esta IP.");
-            console.log("SOLUCIÓN: Actualiza la variable YT_COOKIE en el panel de Render.");
-        } else if (err.message.includes('403')) {
-            console.log("CAUSA: Acceso prohibido (IP bloqueada por YouTube).");
+            console.log("CAUSA: YouTube detectó exceso de peticiones (Rate Limit).");
+            console.log("SOLUCIÓN: Actualiza la variable YT_COOKIE en Render con tu sesión de PC.");
+        } else if (err.message.includes('confirm your age') || err.message.includes('bot')) {
+            console.log("CAUSA: YouTube requiere inicio de sesión (Cookie vencida o mal pegada).");
         }
         console.log("------------------------------------------------------------------");
     }
