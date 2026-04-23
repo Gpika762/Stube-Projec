@@ -48,30 +48,40 @@ app.get('/api/play', async (req, res) => {
 });
 
 // --- FUNCIÓN MAESTRA DE EXTRACCIÓN (CON BYPASS) ---
+// --- FUNCIÓN MAESTRA DE EXTRACCIÓN ACTUALIZADA ---
 async function obtenerLinkYouTube(id) {
-    // Obtenemos la cookie configurada en Render para evitar el Error 429
-    const myCookie = process.env.YT_COOKIE || '';
+    const rawCookie = process.env.YT_COOKIE || '';
+    
+    // Convertimos el texto de la cookie al formato que pide la librería nueva
+    const cookieJSON = rawCookie.split(';').map(v => {
+        const parts = v.split('=');
+        return {
+            name: parts[0] ? parts[0].trim() : '',
+            value: parts[1] ? parts[1].trim() : '',
+            domain: '.youtube.com',
+            path: '/'
+        };
+    }).filter(cookie => cookie.name && cookie.value);
 
     const info = await ytdl.getInfo(id, {
         requestOptions: {
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-                'Cookie': myCookie,
                 'Accept': '*/*',
                 'Accept-Language': 'en-US,en;q=0.9',
                 'Referer': 'https://www.youtube.com/',
                 'Origin': 'https://www.youtube.com'
-            }
+            },
+            // Pasamos las cookies de forma estructurada
+            jar: ytdl.createCookieAgent(cookieJSON)
         }
     });
 
-    // itag 18 es el formato 360p MP4 perfecto para el procesador del S4
     const format = ytdl.chooseFormat(info.formats, { quality: '18' }) || 
                    ytdl.filterFormats(info.formats, 'audioandvideo').find(f => f.container === 'mp4');
     
     return format ? format.url : null;
 }
-
 // --- 🕵️ MODO DETECTIVE: DIAGNÓSTICO DE ARRANQUE ---
 async function realizarPruebaDeVuelo() {
     const videoTest = 'jNQXAC9IVRw'; 
