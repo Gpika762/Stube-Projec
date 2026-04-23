@@ -7,21 +7,18 @@ const app = express();
 
 app.use(cors());
 
-// --- ESTA PARTE ES LA QUE ARREGLA EL "CANNOT GET /" ---
-// 1. Le decimos que use la carpeta "public" para archivos como CSS o imágenes
+// ESTO ES LO QUE HACE QUE CARGUE TU DISEÑO AL ENTRAR
 app.use(express.static(path.join(__dirname, 'public')));
 
-// 2. Le decimos que cuando alguien entre a la raíz (/), le entregue el index.html
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
-// -------------------------------------------------------
 
-// Tu ruta de búsqueda (déjala como está si ya te funcionaba)
+// Ruta para buscar videos (TU CODIGO ORIGINAL)
 app.get('/api/search', async (req, res) => {
     try {
-        const query = req.query.q || 'Samsung Galaxy S4';
-        const r = await yts({ query: query, hl: 'es', gl: 'CL' }); 
+        const query = req.query.q || 'Samsung Galaxy';
+        const r = await yts(query);
         const videos = r.videos.slice(0, 15).map(v => ({
             id: v.videoId,
             title: v.title,
@@ -37,11 +34,12 @@ app.get('/api/search', async (req, res) => {
     }
 });
 
-// Tu ruta de play (déjala como está)
+// Ruta para sacar el link del video (TU CODIGO ORIGINAL)
 app.get('/api/play', async (req, res) => {
     try {
         const videoID = req.query.id;
         const info = await ytdl.getInfo(videoID);
+        // itag 18 = 360p MP4. El mejor para los Galaxy S.
         const format = ytdl.chooseFormat(info.formats, { quality: '18' });
         res.json({ url: format.url });
     } catch (err) {
