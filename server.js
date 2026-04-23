@@ -1,16 +1,26 @@
 const express = require('express');
-const axios = require('axios'); // Asegúrate de tener 'axios' en tu package.json
+const axios = require('axios'); 
 const ytdl = require('@distube/ytdl-core');
 const cors = require('cors');
+const path = require('path'); // <-- IMPORTANTE: Necesario para cargar el index.html
 const app = express();
 
+// --- CONFIGURACIÓN DE ARCHIVOS ---
 app.use(cors());
+app.use(express.static(__dirname)); // Sirve archivos estáticos (CSS, JS del cliente)
+
 const API_KEY = process.env.YT_API_KEY;
 
+// --- RUTA PARA CARGAR LA INTERFAZ PRINCIPAL ---
+app.get('/', (req, res) => {
+    // Esto soluciona el error "Cannot GET /"
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
 
+// --- API DE BÚSQUEDA (CON GOOGLE API KEY) ---
 app.get('/api/search', async (req, res) => {
     try {
-        const query = req.query.q || 'Samsung Galaxy';
+        const query = req.query.q || 'Samsung Galaxy S4';
         const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=15&q=${encodeURIComponent(query)}&type=video&key=${API_KEY}`;
         
         const response = await axios.get(url);
@@ -28,7 +38,7 @@ app.get('/api/search', async (req, res) => {
     }
 });
 
-// --- REPRODUCCIÓN (EXTRACCIÓN CON COOKIE) ---
+// --- API DE REPRODUCCIÓN (EXTRACCIÓN CON COOKIE) ---
 app.get('/api/play', async (req, res) => {
     try {
         const videoID = req.query.id;
@@ -37,21 +47,30 @@ app.get('/api/play', async (req, res) => {
         const info = await ytdl.getInfo(videoID, {
             requestOptions: {
                 headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+                    // User-Agent de Android para mejorar compatibilidad con el S4
+                    'User-Agent': 'Mozilla/5.0 (Linux; Android 4.4.2; GT-I9505) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/48.0.2564.95 Mobile Safari/537.36',
                     'Cookie': rawCookie
                 }
             }
         });
 
-        const format = ytdl.chooseFormat(info.formats, { quality: '18' }); // 360p para el S4
+        // itag 18 es 360p MP4, el estándar de oro para el Galaxy S4
+        const format = ytdl.chooseFormat(info.formats, { quality: '18' }); 
         res.json({ url: format ? format.url : null });
     } catch (err) {
         console.error("Error Play:", err.message);
-        res.status(500).json({ error: "YouTube bloqueó el enlace", detalle: err.message });
+        res.status(500).json({ 
+            error: "YouTube bloqueó el enlace", 
+            detalle: err.message 
+        });
     }
 });
 
+// --- ARRANQUE ---
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
-    console.log(`✅ Stube Online con API Key en puerto ${PORT}`);
+    console.log(`=================================`);
+    console.log(`✅ STUBE ONLINE - MODO API KEY`);
+    console.log(`Puerto: ${PORT}`);
+    console.log(`=================================`);
 });
